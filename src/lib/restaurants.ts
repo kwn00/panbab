@@ -73,7 +73,35 @@ const restaurants: Array<Restaurant & { match: RegExp }> = [
     category: "구내식당",
     match: /소프트웨어드림센터/,
   },
+  {
+    id: "jeonju",
+    name: "전주한식뷔페",
+    building: "수정구 달래내로40",
+    location: "2층",
+    category: "한식뷔페",
+    match: /전주\s*한식\s*뷔페/,
+  },
+  {
+    id: "software-mutual",
+    name: "소프트웨어공제조합 구내식당",
+    building: "소프트웨어공제조합",
+    location: "",
+    category: "구내식당",
+    match: /소프트웨어\s*공제조합/,
+  },
+  {
+    id: "yeongcha",
+    name: "영차밥",
+    building: "글로벌비즈센터",
+    location: "B동 1층",
+    category: "식당",
+    match: /영차밥/,
+  },
 ];
+
+export function matchesKnownRestaurant(title: string): boolean {
+  return restaurants.some((restaurant) => restaurant.match.test(title));
+}
 
 export function identifyRestaurant(title: string, articleId: number): Restaurant {
   const known = restaurants.find((restaurant) => restaurant.match.test(title));

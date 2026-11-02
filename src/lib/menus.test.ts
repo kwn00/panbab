@@ -90,6 +90,10 @@ test("daily menu recognition excludes operation guides and missing-menu announce
   assert.equal(isMenuTitle("오늘 풍경매뉴 못올릴것 같아요"), false);
   assert.equal(isMenuTitle("구내식당 이용 안내"), false);
   assert.equal(isMenuTitle("오늘 휴무입니다"), false);
+  assert.equal(isMenuTitle("11월02일 판교트라이타워 2층 ‘정겨운맛풍경’"), true);
+  assert.equal(isMenuTitle("10월 16일 경기기업성장센터 2층 풍경"), true);
+  assert.equal(isMenuTitle("10월 23일 금요일"), false);
+  assert.equal(isMenuTitle("정겨운맛풍경 휴무"), false);
   assert.equal(titleMatchesDate("9월21일 오늘 메뉴", date), false);
   assert.equal(titleMatchesDate("9월 22일 오늘 메뉴", date), true);
   assert.equal(titleMatchesDate("9/21~9/23 구내식당 메뉴", date), true);
@@ -103,6 +107,29 @@ test("restaurant branches stay distinct and unknown restaurants are not invented
   assert.equal(identifyRestaurant("9월22일 정겨운맛풍경 2호점", 3).id, "jeonggyeoun-try");
   assert.equal(identifyRestaurant("오늘 메뉴", 4).id, "article-4");
   assert.equal(identifyRestaurant('오늘 "새로운 식당" 메뉴', 5).name, "새로운 식당");
+});
+
+test("board restaurants missing from the list keep their own name and place", () => {
+  const jeonju = identifyRestaurant("전주한식뷔페 4월28일 중식메뉴 입니다.", 10);
+  assert.equal(jeonju.id, "jeonju");
+  assert.equal(jeonju.name, "전주한식뷔페");
+  assert.equal(jeonju.building, "수정구 달래내로40");
+  assert.equal(jeonju.location, "2층");
+  assert.equal(jeonju.category, "한식뷔페");
+
+  const mutual = identifyRestaurant("2/23~ 2/27 소프트웨어공제조합 메뉴~", 11);
+  assert.equal(mutual.id, "software-mutual");
+  assert.equal(mutual.name, "소프트웨어공제조합 구내식당");
+  assert.equal(mutual.building, "소프트웨어공제조합");
+  assert.equal(mutual.location, "");
+  assert.equal(mutual.category, "구내식당");
+
+  const yeongcha = identifyRestaurant("5월 9일 글로벌비즈센터 B동 1층 영차밥 오늘메뉴!", 12);
+  assert.equal(yeongcha.id, "yeongcha");
+  assert.equal(yeongcha.name, "영차밥");
+  assert.equal(yeongcha.building, "글로벌비즈센터");
+  assert.equal(yeongcha.location, "B동 1층");
+  assert.equal(identifyRestaurant("11월2일 월요일 런치포유 점심메뉴 글로벌비즈센터 B동 110호", 13).id, "lunch-for-you");
 });
 
 test("image parser preserves original URLs, all images, dimensions, and text without executing HTML", () => {
@@ -147,6 +174,13 @@ test("untrusted image hosts and malformed metadata produce explicit warnings", (
   const result = parseArticleHtml(`<a data-linkdata='not json'><img src="${imageUrl}"></a><img src="https://example.com/a.jpg">`);
   assert.equal(result.images.length, 1);
   assert.equal(result.warnings.length, 2);
+});
+
+test("풍경 2호점 posts are collected when the title omits the word 메뉴", async () => {
+  const item = summary(11, { subject: "9월22일 판교트라이타워 2층 ‘정겨운맛풍경’" });
+  const result = await collectMenus(date, sourceFor([item]), now);
+  assert.deepEqual(result.menus.map((menu) => menu.id), [11]);
+  assert.equal(result.menus[0].restaurant.id, "jeonggyeoun-try");
 });
 
 test("collector includes late morning menus but excludes previous-day, noon, private and future posts", async () => {
