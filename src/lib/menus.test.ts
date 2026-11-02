@@ -109,6 +109,29 @@ test("restaurant branches stay distinct and unknown restaurants are not invented
   assert.equal(identifyRestaurant('오늘 "새로운 식당" 메뉴', 5).name, "새로운 식당");
 });
 
+test("board restaurants missing from the list keep their own name and place", () => {
+  const jeonju = identifyRestaurant("전주한식뷔페 4월28일 중식메뉴 입니다.", 10);
+  assert.equal(jeonju.id, "jeonju");
+  assert.equal(jeonju.name, "전주한식뷔페");
+  assert.equal(jeonju.building, "수정구 달래내로40");
+  assert.equal(jeonju.location, "2층");
+  assert.equal(jeonju.category, "한식뷔페");
+
+  const mutual = identifyRestaurant("2/23~ 2/27 소프트웨어공제조합 메뉴~", 11);
+  assert.equal(mutual.id, "software-mutual");
+  assert.equal(mutual.name, "소프트웨어공제조합 구내식당");
+  assert.equal(mutual.building, "소프트웨어공제조합");
+  assert.equal(mutual.location, "");
+  assert.equal(mutual.category, "구내식당");
+
+  const yeongcha = identifyRestaurant("5월 9일 글로벌비즈센터 B동 1층 영차밥 오늘메뉴!", 12);
+  assert.equal(yeongcha.id, "yeongcha");
+  assert.equal(yeongcha.name, "영차밥");
+  assert.equal(yeongcha.building, "글로벌비즈센터");
+  assert.equal(yeongcha.location, "B동 1층");
+  assert.equal(identifyRestaurant("11월2일 월요일 런치포유 점심메뉴 글로벌비즈센터 B동 110호", 13).id, "lunch-for-you");
+});
+
 test("image parser preserves original URLs, all images, dimensions, and text without executing HTML", () => {
   const result = parseArticleHtml(`
     <div class="se-main-container">
