@@ -75,6 +75,10 @@ const restaurants: Array<Restaurant & { match: RegExp }> = [
   },
 ];
 
+export function matchesKnownRestaurant(title: string): boolean {
+  return restaurants.some((restaurant) => restaurant.match.test(title));
+}
+
 export function identifyRestaurant(title: string, articleId: number): Restaurant {
   const known = restaurants.find((restaurant) => restaurant.match.test(title));
   if (known) {

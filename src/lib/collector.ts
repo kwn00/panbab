@@ -2,13 +2,14 @@ import { articleUrl } from "./config";
 import { collectionWindow, isMorningPost } from "./dates";
 import type { LunchMenu, MenuSnapshot } from "./model";
 import { NaverClient, PrivateArticleError, SourceError, type ArticleSummary } from "./naver";
-import { identifyRestaurant } from "./restaurants";
+import { identifyRestaurant, matchesKnownRestaurant } from "./restaurants";
+
+const menuKeyword = /메뉴|매뉴|식단|점심|차림/;
+const nonMenuNotice = /못.{0,8}올|업로드.{0,8}불가|이용\s*안내|식당\s*안내|휴무|휴업|휴관|공지/;
 
 export function isMenuTitle(title: string): boolean {
-  return (
-    /메뉴|매뉴|식단|점심|차림/.test(title) &&
-    !/못.{0,8}올|업로드.{0,8}불가|이용\s*안내|식당\s*안내|휴무|휴업|휴관|공지/.test(title)
-  );
+  if (nonMenuNotice.test(title)) return false;
+  return menuKeyword.test(title) || matchesKnownRestaurant(title);
 }
 
 export function titleMatchesDate(title: string, date: string): boolean {

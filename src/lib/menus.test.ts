@@ -90,6 +90,10 @@ test("daily menu recognition excludes operation guides and missing-menu announce
   assert.equal(isMenuTitle("오늘 풍경매뉴 못올릴것 같아요"), false);
   assert.equal(isMenuTitle("구내식당 이용 안내"), false);
   assert.equal(isMenuTitle("오늘 휴무입니다"), false);
+  assert.equal(isMenuTitle("11월02일 판교트라이타워 2층 ‘정겨운맛풍경’"), true);
+  assert.equal(isMenuTitle("10월 16일 경기기업성장센터 2층 풍경"), true);
+  assert.equal(isMenuTitle("10월 23일 금요일"), false);
+  assert.equal(isMenuTitle("정겨운맛풍경 휴무"), false);
   assert.equal(titleMatchesDate("9월21일 오늘 메뉴", date), false);
   assert.equal(titleMatchesDate("9월 22일 오늘 메뉴", date), true);
   assert.equal(titleMatchesDate("9/21~9/23 구내식당 메뉴", date), true);
@@ -147,6 +151,13 @@ test("untrusted image hosts and malformed metadata produce explicit warnings", (
   const result = parseArticleHtml(`<a data-linkdata='not json'><img src="${imageUrl}"></a><img src="https://example.com/a.jpg">`);
   assert.equal(result.images.length, 1);
   assert.equal(result.warnings.length, 2);
+});
+
+test("풍경 2호점 posts are collected when the title omits the word 메뉴", async () => {
+  const item = summary(11, { subject: "9월22일 판교트라이타워 2층 ‘정겨운맛풍경’" });
+  const result = await collectMenus(date, sourceFor([item]), now);
+  assert.deepEqual(result.menus.map((menu) => menu.id), [11]);
+  assert.equal(result.menus[0].restaurant.id, "jeonggyeoun-try");
 });
 
 test("collector includes late morning menus but excludes previous-day, noon, private and future posts", async () => {
