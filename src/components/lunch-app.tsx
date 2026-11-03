@@ -7,7 +7,7 @@ import {
   Utensils, X, CalendarDays, CircleAlert, Expand,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CACHE_REVALIDATE_SECONDS, HISTORY_DAYS, SOURCE } from "@/lib/config";
+import { HISTORY_DAYS, SOURCE } from "@/lib/config";
 import { formatDate, formatTime, shiftDate, todayInSeoul, validateRequestedDate } from "@/lib/dates";
 import { useFavorites } from "@/lib/favorites";
 import { preferredImageIndex } from "@/lib/menu-images";
@@ -110,7 +110,7 @@ export function LunchApp({
   ));
   const restaurantCount = new Set(menus.map((menu) => menu.restaurant.id)).size;
 
-  const loadDate = useCallback(async (date: string, quiet = false) => {
+  const loadDate = useCallback(async (date: string, quiet = false, fresh = false) => {
     if (quiet && activeRequest.current) return;
     try {
       validateRequestedDate(date);
@@ -125,7 +125,9 @@ export function LunchApp({
     if (!quiet) setLoading(true);
     setRefreshing(true);
     try {
-      const response = await fetch(`/api/menus?date=${encodeURIComponent(date)}`, {
+      const params = new URLSearchParams({ date });
+      if (fresh) params.set("fresh", "1");
+      const response = await fetch(`/api/menus?${params}`, {
         signal: controller.signal,
         cache: "no-store",
       });
@@ -194,12 +196,12 @@ export function LunchApp({
 
   useEffect(() => {
     if (state.status !== "ready" || loading || refreshing) return;
-    const expiresAt = Date.parse(state.snapshot.collectedAt) + CACHE_REVALIDATE_SECONDS * 1000;
+    const expiresAt = Date.parse(state.snapshot.revalidateAt);
     const delay = refreshError
       ? 60_000
       : state.stale
         ? (Date.now() - expiresAt > 60_000 ? 60_000 : 15_000)
-        : Math.max(15_000, expiresAt - Date.now() + 1_000);
+        : Math.max(1_000, expiresAt - Date.now() + 1_000);
     function refreshVisiblePage() {
       if (
         document.visibilityState === "visible" &&
@@ -264,7 +266,7 @@ export function LunchApp({
             <span className="hero-eyebrow"><span className="status-dot" /> OUR LITTLE LUNCH BREAK</span>
             <h1 id="hero-title">오늘 점심,<br /><span className="hero-highlight">뭐 먹을까요?</span></h1>
             <p>흩어져 있는 2판교 메뉴판,<br className="mobile-break" /> 한 곳에 모아뒀어요.</p>
-            <a className="hero-update" href="#menus"><RefreshCw size={13} aria-hidden="true" /><span>오늘의 메뉴, <strong>5분</strong>마다 새롭게</span><ArrowDown size={13} aria-hidden="true" /></a>
+            <a className="hero-update" href="#menus"><RefreshCw size={13} aria-hidden="true" /><span>오전에 올라온 글은 <strong>1분</strong> 안에</span><ArrowDown size={13} aria-hidden="true" /></a>
           </div>
           <div className="hero-art">
             <span className="handwritten-note">잘 먹고, 잘 일하기<span>↘</span></span>
@@ -290,7 +292,7 @@ export function LunchApp({
                 <label className="date-input-label"><CalendarDays size={14} aria-hidden="true" /><span>{formatDate(selectedDate)}</span><input type="date" name="date" autoComplete="off" aria-label={`메뉴 날짜 선택, 최근 ${HISTORY_DAYS}일`} value={selectedDate} min={earliestDate} max={today} disabled={loading} onChange={(event) => { if (event.target.value) void loadDate(event.target.value); }} /></label>
                 <button className="icon-button" aria-label="다음 날짜 메뉴" disabled={selectedDate >= today || loading} onClick={() => void loadDate(shiftDate(selectedDate, 1))}><ChevronRight size={17} /></button>
               </div>
-              <button className={`icon-button refresh-button ${refreshing ? "is-loading" : ""}`} aria-label="메뉴 다시 불러오기" title="메뉴 다시 불러오기" disabled={refreshing} onClick={() => void loadDate(selectedDate)}><RefreshCw size={16} aria-hidden="true" /></button>
+              <button className={`icon-button refresh-button ${refreshing ? "is-loading" : ""}`} aria-label="메뉴 다시 불러오기" title="메뉴 다시 불러오기" disabled={refreshing} onClick={() => void loadDate(selectedDate, false, true)}><RefreshCw size={16} aria-hidden="true" /></button>
             </div>
           </div>
 
@@ -319,7 +321,7 @@ export function LunchApp({
 
           {favorites.error && <p className="notice-banner" role="alert"><CircleAlert size={16} />{favorites.error}</p>}
           {refreshError && <p className="notice-banner" role="alert"><CircleAlert size={16} aria-hidden="true" />{refreshError}</p>}
-          {state.status === "ready" && state.stale && !loading && <p className="stale-notice" role="status"><RefreshCw size={13} aria-hidden="true" />마지막 확인 후 5분이 지났어요. 최신 메뉴를 다시 확인하고 있어요.<a href={SOURCE.url} target="_blank" rel="noopener noreferrer">원문 보기<ArrowUpRight size={12} /></a></p>}
+          {state.status === "ready" && state.stale && !loading && <p className="stale-notice" role="status"><RefreshCw size={13} aria-hidden="true" />최신 메뉴를 바로 확인하지 못했어요. 이전에 가져온 메뉴를 보여드리고 있어요.<a href={SOURCE.url} target="_blank" rel="noopener noreferrer">원문 보기<ArrowUpRight size={12} /></a></p>}
           {state.status === "ready" && state.snapshot.warnings.length > 0 && (
             <details className="collection-warning"><summary><CircleAlert size={15} />일부 원문을 확인해주세요 ({state.snapshot.warnings.length}건)</summary><ul>{state.snapshot.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></details>
           )}
@@ -327,9 +329,9 @@ export function LunchApp({
           {loading ? (
             <div className="menu-grid" aria-label="메뉴 불러오는 중">{[0, 1, 2].map((item) => <div className="skeleton-card" key={item}><span /><span /><div /><span /></div>)}</div>
           ) : state.status === "error" ? (
-            <div className="empty-state" role="alert"><span className="empty-illustration"><CircleAlert size={31} strokeWidth={1.4} /></span><h3>메뉴판이 잠시 길을 잃었어요</h3><p>{state.message}</p><div className="empty-actions"><button className="primary-button" onClick={() => void loadDate(selectedDate)}><RefreshCw size={15} />다시 불러오기</button><a className="text-button" href={SOURCE.url} target="_blank" rel="noopener noreferrer">카페에서 확인<ArrowUpRight size={15} /></a></div></div>
+            <div className="empty-state" role="alert"><span className="empty-illustration"><CircleAlert size={31} strokeWidth={1.4} /></span><h3>메뉴판이 잠시 길을 잃었어요</h3><p>{state.message}</p><div className="empty-actions"><button className="primary-button" onClick={() => void loadDate(selectedDate, false, true)}><RefreshCw size={15} />다시 불러오기</button><a className="text-button" href={SOURCE.url} target="_blank" rel="noopener noreferrer">카페에서 확인<ArrowUpRight size={15} /></a></div></div>
           ) : menus.length === 0 ? (
-            <div className="empty-state"><span className="empty-illustration"><Soup size={34} strokeWidth={1.4} /></span><h3>아직 올라온 메뉴가 없어요</h3><p>이 날짜에 오전에 올라온 공개 점심 메뉴가 아직 없어요.<br />정오 전 새 글은 다음 갱신 때 반영돼요. 주말·공휴일에는 메뉴가 없을 수 있어요.</p><a className="text-button" href={SOURCE.url} target="_blank" rel="noopener noreferrer">카페의 최신 글 보기<ArrowUpRight size={15} /></a></div>
+            <div className="empty-state"><span className="empty-illustration"><Soup size={34} strokeWidth={1.4} /></span><h3>아직 올라온 메뉴가 없어요</h3><p>이 날짜에 오전에 올라온 공개 점심 메뉴가 아직 없어요.<br />정오 전 새 글은 1분 안에 반영돼요. 주말·공휴일에는 메뉴가 없을 수 있어요.</p><a className="text-button" href={SOURCE.url} target="_blank" rel="noopener noreferrer">카페의 최신 글 보기<ArrowUpRight size={15} /></a></div>
           ) : savedOnly && viewMenus.length === 0 ? (
             <div className="empty-state"><span className="empty-illustration"><Bookmark size={32} strokeWidth={1.4} /></span><h3>{favorites.ids.length ? "저장한 식당의 메뉴가 아직 없어요" : "단골 식당을 모아보세요"}</h3><p>{favorites.ids.length ? "선택한 날짜에 올라온 메뉴가 없어요. 다른 날짜도 확인해보세요." : "식당 카드의 북마크를 누르면 이곳에서 모아볼 수 있어요."}</p><button className="text-button" onClick={() => selectView(false)}>모든 메뉴 둘러보기<ArrowRight size={15} /></button></div>
           ) : filtered.length === 0 ? (

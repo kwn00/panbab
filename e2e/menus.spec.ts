@@ -20,6 +20,7 @@ function fixture(date = todayInSeoul()): Extract<MenuState, { status: "ready" }>
       date,
       cutoffAt: new Date(`${date}T12:00:00+09:00`).toISOString(),
       collectedAt: new Date().toISOString(),
+      revalidateAt: new Date(Date.now() + 60_000).toISOString(),
       warnings: [],
       menus: [
         {
@@ -178,6 +179,7 @@ test("expired snapshots are labeled and a failed background refresh preserves vi
   const stale = fixture();
   stale.stale = true;
   stale.snapshot.collectedAt = new Date(now.getTime() - 6 * 60_000).toISOString();
+  stale.snapshot.revalidateAt = new Date(now.getTime() - 60_000).toISOString();
   await page.unroute("**/api/menus**");
   await page.route("**/api/menus**", (route) => route.fulfill({ json: stale }));
   await page.getByRole("button", { name: "메뉴 다시 불러오기", exact: true }).click();

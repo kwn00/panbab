@@ -5,7 +5,10 @@ export const SOURCE = {
   url: "https://cafe.naver.com/f-e/cafes/30487307/menus/26?viewType=L",
 } as const;
 
-export const CACHE_REVALIDATE_SECONDS = 300;
+/** While today's morning posts can still arrive, before noon KST. */
+export const OPEN_WINDOW_REVALIDATE_SECONDS = 60;
+/** After the noon cutoff. A later post is not part of that day's menu. */
+export const CLOSED_WINDOW_REVALIDATE_SECONDS = 300;
 export const HISTORY_DAYS = 14;
 
 const imageHosts = new Set([
