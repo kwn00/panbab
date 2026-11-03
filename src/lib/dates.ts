@@ -1,4 +1,4 @@
-import { CACHE_REVALIDATE_SECONDS, HISTORY_DAYS } from "./config";
+import { CLOSED_WINDOW_REVALIDATE_SECONDS, HISTORY_DAYS, OPEN_WINDOW_REVALIDATE_SECONDS } from "./config";
 
 const koreanDate = new Intl.DateTimeFormat("sv-SE", {
   timeZone: "Asia/Seoul",
@@ -42,8 +42,21 @@ export function isMorningPost(timestamp: number, date: string): boolean {
   return timestamp >= start.getTime() && timestamp < end.getTime();
 }
 
-export function isSnapshotStale(collectedAt: string, now = new Date()): boolean {
-  return now.getTime() - Date.parse(collectedAt) >= CACHE_REVALIDATE_SECONDS * 1000;
+export function revalidateSecondsFor(date: string, now = new Date()): number {
+  const { end } = collectionWindow(date);
+  return now.getTime() < end.getTime()
+    ? OPEN_WINDOW_REVALIDATE_SECONDS
+    : CLOSED_WINDOW_REVALIDATE_SECONDS;
+}
+
+/** Cache key segment. A new interval is a different entry, so the request waits for a new collection. */
+export function freshnessBucket(date: string, now = new Date()): string {
+  const seconds = revalidateSecondsFor(date, now);
+  return `${seconds}:${Math.floor(now.getTime() / (seconds * 1000))}`;
+}
+
+export function isSnapshotStale(collectedAt: string, now: Date, revalidateSeconds: number): boolean {
+  return now.getTime() - Date.parse(collectedAt) >= revalidateSeconds * 1000;
 }
 
 export function validateRequestedDate(date: string, now = new Date()): void {

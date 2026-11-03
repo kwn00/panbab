@@ -1,5 +1,5 @@
 import { articleUrl } from "./config";
-import { collectionWindow, isMorningPost } from "./dates";
+import { collectionWindow, isMorningPost, revalidateSecondsFor } from "./dates";
 import type { LunchMenu, MenuSnapshot } from "./model";
 import { NaverClient, PrivateArticleError, SourceError, type ArticleSummary } from "./naver";
 import { identifyRestaurant, matchesKnownRestaurant } from "./restaurants";
@@ -117,6 +117,7 @@ export async function collectMenus(
     date,
     cutoffAt: end.toISOString(),
     collectedAt: now.toISOString(),
+    revalidateAt: new Date(now.getTime() + revalidateSecondsFor(date, now) * 1000).toISOString(),
     menus: menus.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt) || b.id - a.id),
     warnings,
   };

@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { collectMenus, isMenuTitle, titleMatchesDate, type MenuSource } from "./collector";
-import { articleUrl, CACHE_REVALIDATE_SECONDS, isMenuImageUrl, SOURCE } from "./config";
 import {
-  collectionWindow, InvalidDateError, isDateKey, isMorningPost,
-  isSnapshotStale, shiftDate, todayInSeoul, validateRequestedDate,
+  articleUrl, CLOSED_WINDOW_REVALIDATE_SECONDS, isMenuImageUrl,
+  OPEN_WINDOW_REVALIDATE_SECONDS, SOURCE,
+} from "./config";
+import {
+  collectionWindow, freshnessBucket, InvalidDateError, isDateKey, isMorningPost,
+  isSnapshotStale, revalidateSecondsFor, shiftDate, todayInSeoul, validateRequestedDate,
 } from "./dates";
 import { NaverClient, parseArticleHtml, PrivateArticleError, type ArticleSummary } from "./naver";
 import { identifyRestaurant } from "./restaurants";
@@ -195,12 +198,15 @@ test("collector includes late morning menus but excludes previous-day, noon, pri
     summary(8, { subject: "9월21일 해담가 오늘 메뉴" }),
     summary(9, { subject: "오늘 풍경매뉴 못올릴것 같아요" }),
   ];
-  const result = await collectMenus(date, sourceFor(items), new Date("2026-09-22T04:00:00Z"));
+  const afternoon = new Date("2026-09-22T04:00:00Z");
+  const result = await collectMenus(date, sourceFor(items), afternoon);
   assert.deepEqual(result.menus.map((menu) => menu.id), [2, 1]);
   assert.equal(result.cutoffAt, "2026-09-22T03:00:00.000Z");
+  assert.equal(result.revalidateAt, new Date(afternoon.getTime() + 300_000).toISOString());
   assert.equal(result.menus[0].sourceUrl, articleUrl(2));
   const earlyVisit = await collectMenus(date, sourceFor(items), now);
   assert.deepEqual(earlyVisit.menus.map((menu) => menu.id), [1]);
+  assert.equal(earlyVisit.revalidateAt, new Date(now.getTime() + 60_000).toISOString());
 });
 
 test("collector follows pagination and deduplicates repeated article IDs", async () => {
@@ -271,12 +277,38 @@ test("private article responses are rejected before content can be used", async 
   await assert.rejects(new NaverClient(request).article(1), PrivateArticleError);
 });
 
-test("cache freshness turns stale at exactly five minutes", () => {
-  assert.equal(CACHE_REVALIDATE_SECONDS, 300);
+test("open-window cache expires at one minute and closed-window cache at five", () => {
+  assert.equal(OPEN_WINDOW_REVALIDATE_SECONDS, 60);
+  assert.equal(CLOSED_WINDOW_REVALIDATE_SECONDS, 300);
   const collectedAt = "2026-09-22T01:00:00.000Z";
-  assert.equal(isSnapshotStale(collectedAt, new Date("2026-09-22T01:04:59.999Z")), false);
-  assert.equal(isSnapshotStale(collectedAt, new Date("2026-09-22T01:05:00.000Z")), true);
-  assert.equal(isSnapshotStale(collectedAt, new Date("2026-09-22T01:30:00.000Z")), true);
+  assert.equal(isSnapshotStale(collectedAt, new Date("2026-09-22T01:00:59.999Z"), 60), false);
+  assert.equal(isSnapshotStale(collectedAt, new Date("2026-09-22T01:01:00.000Z"), 60), true);
+  assert.equal(isSnapshotStale(collectedAt, new Date("2026-09-22T01:04:59.999Z"), 300), false);
+  assert.equal(isSnapshotStale(collectedAt, new Date("2026-09-22T01:05:00.000Z"), 300), true);
+});
+
+test("a new morning minute cannot reuse the previous collection bucket", () => {
+  const duringMorning = new Date("2026-11-03T00:30:10.000Z");
+  const sameMinute = new Date("2026-11-03T00:30:59.999Z");
+  const nextMinute = new Date("2026-11-03T00:31:00.000Z");
+  const afternoon = new Date("2026-11-03T04:00:00.000Z");
+  assert.equal(revalidateSecondsFor("2026-11-03", duringMorning), 60);
+  assert.equal(revalidateSecondsFor("2026-11-03", afternoon), 300);
+  assert.equal(freshnessBucket("2026-11-03", duringMorning), freshnessBucket("2026-11-03", sameMinute));
+  assert.notEqual(freshnessBucket("2026-11-03", duringMorning), freshnessBucket("2026-11-03", nextMinute));
+  assert.notEqual(freshnessBucket("2026-11-03", duringMorning), freshnessBucket("2026-11-03", afternoon));
+});
+
+test("titles posted on the morning of 2026-11-03 match that date", () => {
+  const titles = [
+    '11월 3일 판교이노베이션랩 "바른밥상" 오늘의 메뉴',
+    "11월03일 판교트라이타워 2층 ‘정겨운맛풍경’",
+    '11월3일 판교아이스퀘어 107호 "해담가" 오늘 메뉴',
+  ];
+  for (const title of titles) {
+    assert.equal(isMenuTitle(title), true, title);
+    assert.equal(titleMatchesDate(title, "2026-11-03"), true, title);
+  }
 });
 
 test("an early visitor gets menus already posted, without waiting until 10:30", async () => {

@@ -6,9 +6,11 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function GET(request: Request) {
-  const date = new URL(request.url).searchParams.get("date") ?? todayInSeoul();
+  const url = new URL(request.url);
+  const date = url.searchParams.get("date") ?? todayInSeoul();
+  const fresh = url.searchParams.get("fresh") === "1";
   try {
-    return Response.json(await getMenus(date), {
+    return Response.json(await getMenus(date, new Date(), { fresh }), {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {

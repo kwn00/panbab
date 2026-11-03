@@ -31,6 +31,7 @@ export const snapshotSchema = z.object({
   date: z.iso.date(),
   cutoffAt: z.iso.datetime(),
   collectedAt: z.iso.datetime(),
+  revalidateAt: z.iso.datetime(),
   menus: z.array(lunchMenuSchema),
   warnings: z.array(z.string()),
 });

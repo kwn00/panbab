@@ -6,7 +6,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "판밥 — 2판교 오늘의 점심",
   description:
-    "오늘 점심, 뭐 먹을까요? 2판교 식당의 오전 메뉴판을 한눈에. 방문할 때 확인하고 5분 동안 캐싱해 빠르게 보여드려요.",
+    "오늘 점심, 뭐 먹을까요? 2판교 식당의 오전 메뉴판을 한눈에. 오전에 올라온 글은 1분 안에 반영해요.",
   applicationName: "판밥",
   appleWebApp: { capable: true, title: "판밥", statusBarStyle: "default" },
   formatDetection: { telephone: false },
