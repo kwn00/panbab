@@ -23,7 +23,7 @@ test("a clipboard that refuses the image returns a failed promise", async () => 
   });
   globalThis.ClipboardItem = class {
     constructor() {}
-  } as typeof ClipboardItem;
+  } as unknown as typeof ClipboardItem;
   try {
     await assert.rejects(copyMenuImage(imageUrl), /clipboard-refused/);
   } finally {
