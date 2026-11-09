@@ -192,8 +192,12 @@ h1, h2, h3 { text-wrap: balance; }
 .dialog-header h2 { font-size: 23px; letter-spacing: -.7px; margin-bottom: 9px; }
 .dialog-location { display: flex; align-items: center; gap: 5px; color: #8d957e; font-size: 11px; }
 .close-dialog { background: #f2f2e8; width: 39px; height: 39px; }
-.image-tools { display: flex; align-items: center; justify-content: space-between; padding: 6px 23px; font-size: 10px; color: #90967f; }
+.image-tools { display: flex; align-items: center; justify-content: space-between; gap: 8px 14px; flex-wrap: wrap; padding: 6px 23px; font-size: 10px; color: #90967f; }
 .image-tools b { margin-left: 5px; color: #62724d; }
+.image-tool-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 14px; margin-left: auto; }
+.image-tools .text-button { white-space: nowrap; }
+.image-tools .text-button.is-copied { color: var(--orange-dark); }
+.image-tools .is-copying > svg { animation: spin 1.2s linear infinite; }
 .dialog-image-canvas { padding: 12px 24px 20px; background: #eeefe7; max-height: 66dvh; overflow: auto; overscroll-behavior: contain; text-align: center; }
 .dialog-image-canvas > img { width: auto; max-width: 100%; height: auto; max-height: 61dvh; object-fit: contain; margin: auto; }
 .dialog-image-canvas.is-zoomed > img { max-width: none; max-height: none; margin: 0; }
