@@ -136,6 +136,49 @@ test("all original images are accessible, zoomable, and keyboard navigable", asy
   await expect(opener).toBeFocused();
 });
 
+test("the open menu image can be copied to the clipboard", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const jpeg = Buffer.from(
+    "/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYwLjMxLjEwMgD/2wBDAAgEBAQEBAUFBQUFBQYGBgYGBgYGBgYGBgYHBwcICAgHBwcGBgcHCAgICAkJCQgICAgJCQoKCgwMCwsODg4RERT/xABMAAEBAAAAAAAAAAAAAAAAAAAABgEBAQAAAAAAAAAAAAAAAAAABgcQAQAAAAAAAAAAAAAAAAAAAAARAQAAAAAAAAAAAAAAAAAAAAD/wAARCAACAAIDASIAAhEAAxEA/9oADAMBAAIRAxEAPwCLAFF/f//Z",
+    "base64",
+  );
+  const requested: string[] = [];
+  await page.route("**/api/menu-image**", (route) => {
+    const url = new URL(route.request().url()).searchParams.get("url") ?? "";
+    requested.push(url);
+    if (url.endsWith("map.png")) {
+      return route.fulfill({ status: 502, contentType: "text/plain; charset=utf-8", body: "이미지를 불러오지 못했어요." });
+    }
+    return route.fulfill({ status: 200, contentType: "image/jpeg", body: jpeg });
+  });
+
+  await page.getByRole("button", { name: "테스트 밥집 메뉴 크게 보기", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "테스트 밥집", exact: true });
+  await dialog.getByRole("button", { name: "메뉴판 이미지 복사", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "메뉴판 이미지를 클립보드에 복사했어요", exact: true })).toBeVisible();
+  expect(requested).toEqual([`${imageBase}/menu-${todayInSeoul()}.png`]);
+  const copied = await page.evaluate(async () => {
+    const items = await navigator.clipboard.read();
+    const blob = await items[0]?.getType("image/png");
+    return { types: items[0]?.types ?? [], size: blob?.size ?? 0, type: blob?.type ?? "" };
+  });
+  expect(copied.types).toContain("image/png");
+  expect(copied.type).toBe("image/png");
+  expect(copied.size).toBeGreaterThan(0);
+
+  await page.setViewportSize({ width: 320, height: 900 });
+  const dimensions = await page.evaluate(() => ({
+    document: document.documentElement.scrollWidth,
+    viewport: document.documentElement.clientWidth,
+  }));
+  expect(dimensions.document).toBeLessThanOrEqual(dimensions.viewport + 1);
+
+  await dialog.getByRole("button", { name: "다음 메뉴판", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "메뉴판 이미지 복사", exact: true })).toBeVisible();
+  await dialog.getByRole("button", { name: "메뉴판 이미지 복사", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "메뉴판 이미지를 복사하지 못했어요", exact: true })).toBeVisible();
+});
+
 test("date navigation requests the selected date and keeps the selection on reload", async ({ page }) => {
   const yesterday = shiftDate(todayInSeoul(), -1);
   await page.getByRole("button", { name: "이전 날짜 메뉴", exact: true }).click();
@@ -151,7 +194,9 @@ test("date navigation requests the selected date and keeps the selection on relo
 
 test("text menus, empty states, and upstream failures are explicit", async ({ page }) => {
   await page.getByRole("button", { name: "텍스트 식당 메뉴 크게 보기", exact: true }).click();
-  await expect(page.getByRole("dialog").locator(".dialog-menu-text")).toContainText("김치찌개");
+  const textDialog = page.getByRole("dialog");
+  await expect(textDialog.locator(".dialog-menu-text")).toContainText("김치찌개");
+  await expect(textDialog.getByRole("button", { name: "메뉴판 이미지 복사", exact: true })).toHaveCount(0);
   await page.keyboard.press("Escape");
 
   await page.unroute("**/api/menus**");
